@@ -20,7 +20,7 @@ class T(TipoviTokena):
     KOND, BIKOND = '->', '<->'
     class PVAR(Token):  # P0, P1, P2, ... P153, ...
         def vrijednost(var, I): return I[var]
-        def optim(var): return var
+        def makni_neg(var): return var, True
         def ispis(var): return var.sadržaj.translate(subskript)
 
 
@@ -54,17 +54,24 @@ def ls(lex):
 
 
 class P(Parser):
-    def formula(p) -> 'PVAR|Negacija|Binarna':
+    def formula(p) -> 'PVAR|Negacija|Konjunkcija|Disjunkcija|Kondicional|Bikondicional':
         if varijabla := p >= T.PVAR: return varijabla
         elif p >= T.NEG: 
             ispod = p.formula()
             return Negacija(ispod)
         elif p >> T.OTV:
             lijevo = p.formula()
-            veznik = p >> {T.KONJ, T.DISJ, T.KOND, T.BIKOND}
+            klasa = p.binvez()
             desno = p.formula()
             p >> T.ZATV
-            return Binarna(veznik, lijevo, desno)
+            return klasa(lijevo, desno)
+
+    def binvez(p): 
+        if p >= T.KONJ: return Konjunkcija
+        elif p >= T.DISJ: return Disjunkcija
+        elif p >= T.KOND: return Kondicional
+        elif p >= T.BIKOND: return Bikondicional
+        else: raise p.greška()
 
 
 class Negacija(AST):
@@ -73,52 +80,81 @@ class Negacija(AST):
 
     def vrijednost(negacija, I): return not negacija.ispod.vrijednost(I)
 
-    def optim(negacija):
-        match ispod_opt := negacija.ispod.optim():
-            case Negacija(ispod_ispod): return ispod_ispod
-            case _: return Negacija(ispod_opt)
+    def makni_neg(negacija):
+        bez_neg, pozitivna = negacija.ispod.makni_neg()
+        return bez_neg, not pozitivna
 
     def ispis(negacija): return negacija.veznik + negacija.ispod.ispis()
 
 
 class Binarna(AST):
-    veznik: T
     lijevo: P.formula
     desno: P.formula
 
-    ZNAKOVI = {
-        T.KONJ: '∧',
-        T.DISJ: '∨',
-        T.KOND: '→',
-        T.BIKOND: '↔'
-    }
-
     def vrijednost(self, I):
-        v = self.veznik
+        klasa = type(self)
         l = self.lijevo.vrijednost(I)
         d = self.desno.vrijednost(I)
-        match self.veznik.tip:
-            case T.DISJ: return l or d
-            case T.KONJ: return l and d
-            case T.KOND: return l <= d
-            case T.BIKOND: return l == d
-            case _: assert False, 'nepokriveni slučaj'
+        return klasa.tablica(l, d)
 
-    def optim(self):
-        lijevo_opt = self.lijevo.optim()
-        desno_opt = self.desno.optim()
-
-        if self.veznik.tip == T.DISJ:
-            match desno_opt:
-                case Negacija(ispod):
-                    Novi_veznik = Token(T.KOND)  # F|!G u G->F
-                    return Binarna(Novi_veznik, ispod, lijevo_opt)
-
-        return Binarna(self.veznik, lijevo_opt, desno_opt)
+    def makni_neg(self):
+        klasa = type(self)
+        lijevo, lijevo_poz = self.lijevo.makni_neg()
+        desno, desno_poz = self.desno.makni_neg()
+        return klasa.xform(lijevo, desno, lijevo_poz, desno_poz), klasa.tablica(lijevo_poz, desno_poz)
 
     def ispis(self):
-        znak = self.ZNAKOVI[self.veznik.tip]
-        return '(' + self.lijevo.ispis() + znak + self.desno.ispis() + ')'
+        return '(' + self.lijevo.ispis() + self.veznik + self.desno.ispis() + ')'
+
+
+class Disjunkcija(Binarna):
+    veznik = '∨'
+
+    def tablica(l, d): return l or d
+
+    def xform(lijevo, desno, lijevo_poz, desno_poz):
+        match lijevo_poz, desno_poz:
+            case True, True: return Disjunkcija(lijevo, desno)
+            case False, True: return Kondicional(lijevo, desno)
+            case True, False: return Kondicional(desno, lijevo)
+            case False, False: return Konjunkcija(lijevo, desno)
+            case _: assert False, 'nepokriveni slučaj!'
+
+
+class Konjunkcija(Binarna):
+    veznik = '∧'
+
+    def tablica(l, d): return l and d
+
+    def xform(lijevo, desno, lijevo_poz, desno_poz):
+        return Disjunkcija.xform(lijevo, desno, not lijevo_poz, not desno_poz)
+    
+
+class Kondicional(Binarna):
+    veznik = '→'
+
+    def tablica(l, d):
+        if l: return d
+        return True
+
+    def xform(lijevo, desno, lijevo_poz, desno_poz):
+        return Disjunkcija.xform(lijevo, desno, not lijevo_poz, not desno_poz)
+
+
+class Bikondicional(Binarna):
+    veznik = '↔'
+
+    def tablica(l, d): return l == d
+
+    def xform(lijevo, desno, lijevo_poz, desno_poz):
+        return Bikondicional(lijevo, desno)
+
+
+def optim(formula):
+    """Pretvara formulu (AST) u oblik s najviše jednom negacijom."""
+    bez_neg, pozitivna = formula.makni_neg()
+    if pozitivna: return bez_neg
+    else: return Negacija(bez_neg)
 
 
 def istinitost(formula, **interpretacija):
@@ -130,7 +166,7 @@ for ulaz in '!(P5&!!(P0|!P3))', '(!P0&(!P1<->!P5))':
     ls(ulaz)
     prikaz(F := P(ulaz))
     print(F.ispis())
-    prikaz(F := F.optim())
+    prikaz(F := optim(F))
     print(F.ispis())
     print(f'{istinitost(F, P0=False, P3=True, P5=False,  P1=True)=}')
     print('-' * 60)
@@ -140,5 +176,5 @@ for krivo in 'P', 'P00', 'P1\tP2', 'P34<>P56':
 
 
 # DZ: implementirajte još neke optimizacije: npr. F|!G u G->F. Rijeseno!
-# DZ: Napravite totalnu optimizaciju negacije: svaka formula s najviše jednim !
+# DZ: Napravite totalnu optimizaciju negacije: svaka formula s najviše jednim !. Rijeseno!
 # ~~  *Za ovo bi vjerojatno bilo puno lakše imati po jedno AST za svaki veznik.
