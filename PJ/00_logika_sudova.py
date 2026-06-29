@@ -13,12 +13,15 @@ Optimizacija (formula.optim()) zamjenjuje potformule oblika !!F sa F."""
 from vepar import *
 
 
+subskript = str.maketrans('0123456789', '₀₁₂₃₄₅₆₇₈₉')
+
 class T(TipoviTokena):
     NEG, KONJ, DISJ, OTV, ZATV = '!&|()'
     KOND, BIKOND = '->', '<->'
     class PVAR(Token):  # P0, P1, P2, ... P153, ...
         def vrijednost(var, I): return I[var]
         def optim(var): return var
+        def ispis(var): return var.sadržaj.translate(subskript)
 
 
 @lexer
@@ -66,6 +69,7 @@ class P(Parser):
 
 class Negacija(AST):
     ispod: P.formula
+    veznik = '¬'
 
     def vrijednost(negacija, I): return not negacija.ispod.vrijednost(I)
 
@@ -74,11 +78,20 @@ class Negacija(AST):
             case Negacija(ispod_ispod): return ispod_ispod
             case _: return Negacija(ispod_opt)
 
+    def ispis(negacija): return negacija.veznik + negacija.ispod.ispis()
+
 
 class Binarna(AST):
     veznik: T
     lijevo: P.formula
     desno: P.formula
+
+    ZNAKOVI = {
+        T.KONJ: '∧',
+        T.DISJ: '∨',
+        T.KOND: '→',
+        T.BIKOND: '↔'
+    }
 
     def vrijednost(self, I):
         v = self.veznik
@@ -94,7 +107,18 @@ class Binarna(AST):
     def optim(self):
         lijevo_opt = self.lijevo.optim()
         desno_opt = self.desno.optim()
+
+        if self.veznik.tip == T.DISJ:
+            match desno_opt:
+                case Negacija(ispod):
+                    Novi_veznik = Token(T.KOND)  # F|!G u G->F
+                    return Binarna(Novi_veznik, ispod, lijevo_opt)
+
         return Binarna(self.veznik, lijevo_opt, desno_opt)
+
+    def ispis(self):
+        znak = self.ZNAKOVI[self.veznik.tip]
+        return '(' + self.lijevo.ispis() + znak + self.desno.ispis() + ')'
 
 
 def istinitost(formula, **interpretacija):
@@ -102,15 +126,19 @@ def istinitost(formula, **interpretacija):
     return formula.vrijednost(I)
 
 
-ls(ulaz := '!(P5&!!(P3->P0))')
-prikaz(F := P(ulaz))
-prikaz(F := F.optim())
-print(f'{istinitost(F, P0=False, P3=True, P5=False)=}')  # True
+for ulaz in '!(P5&!!(P0|!P3))', '(!P0&(!P1<->!P5))':
+    ls(ulaz)
+    prikaz(F := P(ulaz))
+    print(F.ispis())
+    prikaz(F := F.optim())
+    print(F.ispis())
+    print(f'{istinitost(F, P0=False, P3=True, P5=False,  P1=True)=}')
+    print('-' * 60)
 
 for krivo in 'P', 'P00', 'P1\tP2', 'P34<>P56':
     with LeksičkaGreška: ls(krivo)
 
 
-# DZ: implementirajte još neke optimizacije: npr. F|!G u G->F.
+# DZ: implementirajte još neke optimizacije: npr. F|!G u G->F. Rijeseno!
 # DZ: Napravite totalnu optimizaciju negacije: svaka formula s najviše jednim !
 # ~~  *Za ovo bi vjerojatno bilo puno lakše imati po jedno AST za svaki veznik.
