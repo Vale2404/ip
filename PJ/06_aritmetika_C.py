@@ -40,6 +40,10 @@ def ac(lex):
             if lex >= '.': lex * str.isdecimal
             if lex >= 'e': lex >= '-', lex + str.isdecimal
             yield lex.token(T.BROJ)
+        elif znak == '.' and lex >= str.isdecimal:
+            lex * str.isdecimal
+            if lex >= 'e': lex >= '-', lex + str.isdecimal
+            yield lex.token(T.BROJ)
         elif znak.isalpha():
             lex * str.isalnum
             yield lex.literal_ili(T.IME)
@@ -53,7 +57,8 @@ def ac(lex):
 ### Beskontekstna gramatika
 # start -> izraz | izraz STRELICA IME start
 # izraz -> član | izraz PLUS član | izraz MINUS član
-# član -> faktor | član PUTA faktor | član KROZ faktor
+# član -> impl | član PUTA impl | član KROZ impl
+# impl -> faktor | impl faktor
 # faktor -> baza | baza NA faktor | MINUS faktor 
 # baza -> BROJ | IME | I | OTV izraz ZATV | baza KONJ
 
@@ -72,9 +77,14 @@ class P(Parser):
         while op := p >= {T.PLUS, T.MINUS}: t = Binarna(op, t, p.član())
         return t
 
-    def član(p) -> 'faktor|Binarna':
+    def član(p) -> 'impl|Binarna':
+        t = p.impl()
+        while op := p >= {T.PUTA, T.KROZ}: t = Binarna(op, t, p.impl())
+        return t
+    
+    def impl(p) -> 'faktor|Binarna':
         t = p.faktor()
-        while op := p >= {T.PUTA, T.KROZ}: t = Binarna(op, t, p.faktor())
+        while p > {T.BROJ, T.IME, T.I, T.OTV}: t = Binarna(Token(T.PUTA, '*'), t, p.faktor())
         return t
 
     def faktor(p) -> 'Unarna|baza|Binarna':
@@ -189,12 +199,24 @@ izračunaj('''
  (5*((((1+0.2*(350/661.5)^2)^3.5-1)*(1-6.875e-6*255e2)^-5.2656+1)^0.286-1))^2^-1
 '''.strip())
 
+izračunaj('2+3i')
+izračunaj('6/3i')
+
+izračunaj('.5+.5')
+izračunaj('1/.5')
+izračunaj('.25*4')
+
 with LeksičkaGreška: izračunaj('2e+3')
 with GreškaIzvođenja: izračunaj('2+2/0')
 with GreškaIzvođenja: izračunaj('0**i')
+with LeksičkaGreška: izračunaj('.+.')
 
 # DZ: Dodajte implicitno množenje (barem s i, tako da radi npr. 2+3i)
 # *pritom pazite na izraze poput 6/3i
-# DZ: Dodajte mogućnost upisa realnog broja bez vodeće nule, npr. 1/5=.2
+# Dakle implicitno mnozenje mora imati visi prioritet od eksplicitnog
+# mnozenja i dijeljenja. Rijeseno!
+
+# DZ: Dodajte mogućnost upisa realnog broja bez vodeće nule, npr. 1/5=.2 Rijeseno!
+
 # DZ: Stritkno držanje IEEE-754 zahtijeva i ispravno tretiranje dijeljenja nulom
 # (a ako želite biti sasvim compliant, i potenciranja poput 0^-1): učinite to!
