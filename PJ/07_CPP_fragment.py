@@ -187,6 +187,23 @@ prikaz(kôd := P('''
 '''), 8)
 kôd.izvrši()
 prikaz(P('cout;'))
+
+prikaz(kôd := P('''
+    for ( i = 0 ; i < 10 ; i++ ) {
+        if(i == 4) break;
+        cout << i << endl;
+    }
+'''), 8)
+kôd.izvrši()
+
+prikaz(kôd := P('''
+    for ( i = 0 ; i < 10 ; i++ ) {
+        if(i == 4) continue;
+        cout << i << endl;
+    }
+'''), 8)
+kôd.izvrši()
+
 očekuj(SintaksnaGreška, '')
 očekuj(SintaksnaGreška, 'for(c=1; c<3; c++);')
 očekuj(LeksičkaGreška, '+1')
