@@ -63,6 +63,7 @@ def cpp(lex):
  
 class P(Parser):
     def start(p) -> 'Program':
+        p.broj_petlji = 0
         naredbe = [p.naredba()]
         while not p > KRAJ: naredbe.append(p.naredba())
         return Program(naredbe)
@@ -77,6 +78,7 @@ class P(Parser):
             while not p >= T.VZATV: naredbe.append(p.naredba())
             return Blok(naredbe)
         elif br := p >= T.BREAK:
+            if(p.broj_petlji == 0): raise SemantičkaGreška('nedozvoljen break izvan petlje')
             p >> T.TOČKAZ
             return br
         elif cn := p >> T.CONTINUE:
@@ -102,7 +104,9 @@ class P(Parser):
         elif p >> T.PLUSJ: inkrement = p >> {T.BROJ, T.IME}
         p >> T.OZATV
 
+        p.broj_petlji += 1
         tijelo = p.naredba()
+        p.broj_petlji -= 1
         return Petlja(i, početak, granica, inkrement, tijelo)
         
     def ispis(p) -> 'Ispis':
@@ -145,10 +149,7 @@ class Program(AST):
 
     def izvrši(program):
         rt.mem = Memorija()
-        try:  # break izvan petlje je zapravo sintaksna greška - kompliciranije
-            for naredba in program.naredbe: naredba.izvrši()
-        except Prekid: raise SemantičkaGreška('nedozvoljen break izvan petlje')
-        except Nastavi: raise SemantičkaGreška('nedozvoljen continue izvan petlje')
+        for naredba in program.naredbe: naredba.izvrši()
 
 class Petlja(AST):
     varijabla: T.IME
@@ -278,5 +279,5 @@ očekuj(LeksičkaGreška, 'if(i == 07) cout;')
 # DZ: omogućite i grananjima da imaju blokove -- uvedite novo AST Blok. Rijeseno!
 # DZ: omogućite da parametri petlje budu varijable, ne samo brojevi. Rijeseno!
 # DZ: omogućite grananja s obzirom na relaciju <, ne samo ==. Rijeseno!
-# DZ: dodajte parseru kontekstnu varijablu 'jesmo li u petlji' za dozvolu BREAK
+# DZ: dodajte parseru kontekstnu varijablu 'jesmo li u petlji' za dozvolu BREAK. Rijeseno!
 # DZ: uvedite deklaracije varijabli i pratite jesu li varijable deklarirane
