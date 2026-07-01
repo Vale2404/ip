@@ -145,6 +145,19 @@ class Binarna(AST):
                 case T.KROZ: return lijevo / desno
                 case T.NA: return lijevo ** desno
                 case _: assert False, f'nepokriveni binarni operator {self.op}'
+        
+        except ZeroDivisionError:
+            # Dijeljenje s nulom
+            if self.op.tip == T.KROZ:
+                if lijevo == 0:
+                    return complex(float('nan'), float('nan'))
+                return complex(float('inf'), float('inf'))
+            # Potenciranje nule
+            elif self.op.tip == T.NA:
+                if desno.imag != 0:
+                    return complex(float('nan'), float('nan'))
+                elif desno.real < 0:
+                    return complex(float('inf'), float('inf'))
         except ArithmeticError as ex: raise self.iznimka(ex)
 
     def tac(self):
@@ -206,9 +219,20 @@ izračunaj('.5+.5')
 izračunaj('1/.5')
 izračunaj('.25*4')
 
+izračunaj('0/0')
+izračunaj('0/1')
+izračunaj('1/0')
+izračunaj('2+2/0')
+
+izračunaj('0**-1')
+izračunaj('0**0')
+izračunaj('0**1')
+izračunaj('0**2')
+izračunaj('0**i')
+
 with LeksičkaGreška: izračunaj('2e+3')
-with GreškaIzvođenja: izračunaj('2+2/0')
-with GreškaIzvođenja: izračunaj('0**i')
+# with GreškaIzvođenja: izračunaj('2+2/0')
+# with GreškaIzvođenja: izračunaj('0**i')
 with LeksičkaGreška: izračunaj('.+.')
 
 # DZ: Dodajte implicitno množenje (barem s i, tako da radi npr. 2+3i)
@@ -219,4 +243,4 @@ with LeksičkaGreška: izračunaj('.+.')
 # DZ: Dodajte mogućnost upisa realnog broja bez vodeće nule, npr. 1/5=.2 Rijeseno!
 
 # DZ: Stritkno držanje IEEE-754 zahtijeva i ispravno tretiranje dijeljenja nulom
-# (a ako želite biti sasvim compliant, i potenciranja poput 0^-1): učinite to!
+# (a ako želite biti sasvim compliant, i potenciranja poput 0^-1): učinite to! Rijeseno!
