@@ -20,6 +20,9 @@ class T(TipoviTokena):
     class BREAK(Token):
         literal = 'break'
         def izvrši(self): raise Prekid
+    class CONTINUE(Token):
+        literal = 'continue'
+        def izvrši(self): raise Nastavi
     class BROJ(Token):
         def vrijednost(self): return int(self.sadržaj)
     class IME(Token):
@@ -48,7 +51,7 @@ def cpp(lex):
 ## Beskontekstna gramatika
 # start -> naredbe naredba
 # naredbe -> '' | naredbe naredba
-# naredba -> petlja | grananje | ispis TOČKAZ | BREAK TOČKAZ
+# naredba -> petlja | grananje | ispis TOČKAZ | BREAK TOČKAZ | CONTINUE TOČKAZ
 # for -> FOR OOTV IME# JEDNAKO BROJ TOČKAZ IME# MANJE BROJ TOČKAZ
 # 	     IME# inkrement OZATV
 # petlja -> for naredba | for VOTV naredbe VZATV
@@ -63,13 +66,16 @@ class P(Parser):
         while not p > KRAJ: naredbe.append(p.naredba())
         return Program(naredbe)
 
-    def naredba(p) -> 'petlja|ispis|grananje|BREAK':
+    def naredba(p) -> 'petlja|ispis|grananje|BREAK|CONTINUE':
         if p > T.FOR: return p.petlja()
         elif p > T.COUT: return p.ispis()
         elif p > T.IF: return p.grananje()
-        elif br := p >> T.BREAK:
+        elif br := p >= T.BREAK:
             p >> T.TOČKAZ
             return br
+        elif cn := p >> T.CONTINUE:
+            p >> T.TOČKAZ
+            return cn
 
     def petlja(p) -> 'Petlja':
         kriva_varijabla = SemantičkaGreška(
@@ -117,6 +123,7 @@ class P(Parser):
 
 
 class Prekid(NelokalnaKontrolaToka): """Signal koji šalje naredba break."""
+class Nastavi(NelokalnaKontrolaToka): """Signal koji šalje naredba continue."""
 
 
 ## Apstraktna sintaksna stabla:
@@ -135,6 +142,7 @@ class Program(AST):
         try:  # break izvan petlje je zapravo sintaksna greška - kompliciranije
             for naredba in program.naredbe: naredba.izvrši()
         except Prekid: raise SemantičkaGreška('nedozvoljen break izvan petlje')
+        except Nastavi: raise SemantičkaGreška('nedozvoljen continue izvan petlje')
 
 class Petlja(AST):
     varijabla: T.IME
@@ -150,6 +158,7 @@ class Petlja(AST):
             try:
                 for naredba in petlja.blok: naredba.izvrši()
             except Prekid: break
+            except Nastavi: pass
             inkr = petlja.inkrement
             rt.mem[kv] += inkr.vrijednost() if inkr else 1
 
@@ -212,7 +221,7 @@ očekuj(SemantičkaGreška, 'break;')
 očekuj(LeksičkaGreška, 'if(i == 07) cout;')
 
 
-# DZ: implementirajte naredbu continue
+# DZ: implementirajte naredbu continue. Rijeseno!
 # DZ: implementirajte praznu naredbu (for/if(...);)
 # DZ: omogućite i grananjima da imaju blokove -- uvedite novo AST Blok
 # DZ: omogućite da parametri petlje budu varijable, ne samo brojevi
