@@ -119,10 +119,10 @@ class P(Parser):
     def grananje(p) -> 'Grananje':
         p >> T.IF, p >> T.OOTV
         lijevo = p >> T.IME
-        p >> T.JJEDNAKO
+        operator = p >> {T.JJEDNAKO, T.MANJE}
         desno = p >> T.BROJ
         p >> T.OZATV
-        return Grananje(lijevo, desno, p.naredba())
+        return Grananje(operator, lijevo, desno, p.naredba())
 
 
 class Prekid(NelokalnaKontrolaToka): """Signal koji šalje naredba break."""
@@ -135,10 +135,10 @@ class Nastavi(NelokalnaKontrolaToka): """Signal koji šalje naredba continue."""
 #          CONTINUE: Token
 #          PraznaNaredba:
 #          Blok: naredbe:[naredba]
-#          Petlja: varijabla:IME početak:BROJ granica:BROJ
-#                      inkrement:BROJ? tijelo:naredba
+#          Petlja: varijabla:IME početak:'T.BROJ|T.IME' granica:'T.BROJ|T.IME'
+#                      inkrement:'T.BROJ|T.IME'? tijelo:naredba
 #          Ispis: varijable:[IME] novired:ENDL?
-#          Grananje: lijevo:IME desno:BROJ onda:naredba
+#          Grananje: operator:'T.JJEDNAKO|T.MANJE' lijevo:IME desno:BROJ onda:naredba
 
 class Program(AST):
     naredbe: list[P.naredba]
@@ -178,13 +178,18 @@ class Ispis(AST):
         if ispis.novired ^ T.ENDL: print()
 
 class Grananje(AST):
+    operator: 'T.JJEDNAKO|T.MANJE'
     lijevo: T.IME
     desno: T.BROJ
     onda: P.naredba
 
     def izvrši(grananje):
-        if grananje.lijevo.vrijednost() == grananje.desno.vrijednost():
-            grananje.onda.izvrši()
+        if grananje.operator ^ T.JJEDNAKO:
+            if grananje.lijevo.vrijednost() == grananje.desno.vrijednost():
+                grananje.onda.izvrši()
+        elif grananje.operator ^ T.MANJE:
+            if grananje.lijevo.vrijednost() < grananje.desno.vrijednost():
+                grananje.onda.izvrši()
 
 class PraznaNaredba(AST):
     def izvrši(prazna): pass
@@ -251,6 +256,15 @@ prikaz(kôd := P('''
 '''), 8)
 kôd.izvrši()
 
+prikaz(kôd := P('''
+    for ( i = 0 ; i < 5 ; i++ ) {
+        if (i < 3) {
+            cout << i << endl;
+        }
+    }
+'''), 8)
+kôd.izvrši()
+
 očekuj(SintaksnaGreška, '')
 # očekuj(SintaksnaGreška, 'for(c=1; c<3; c++);')
 očekuj(LeksičkaGreška, '+1')
@@ -263,6 +277,6 @@ očekuj(LeksičkaGreška, 'if(i == 07) cout;')
 # DZ: implementirajte praznu naredbu (for/if(...);). Rijeseno!
 # DZ: omogućite i grananjima da imaju blokove -- uvedite novo AST Blok. Rijeseno!
 # DZ: omogućite da parametri petlje budu varijable, ne samo brojevi. Rijeseno!
-# DZ: omogućite grananja s obzirom na relaciju <, ne samo ==
+# DZ: omogućite grananja s obzirom na relaciju <, ne samo ==. Rijeseno!
 # DZ: dodajte parseru kontekstnu varijablu 'jesmo li u petlji' za dozvolu BREAK
 # DZ: uvedite deklaracije varijabli i pratite jesu li varijable deklarirane
