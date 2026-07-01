@@ -27,6 +27,8 @@ class T(TipoviTokena):
         def vrijednost(self): return int(self.sadržaj)
     class IME(Token):
         def vrijednost(self): return rt.mem[self]
+    class INT(Token):
+        literal = 'int'
 
 @lexer
 def cpp(lex):
@@ -51,7 +53,8 @@ def cpp(lex):
 ## Beskontekstna gramatika
 # start -> naredbe naredba
 # naredbe -> '' | naredbe naredba
-# naredba -> petlja | grananje | ispis TOČKAZ | BREAK TOČKAZ | CONTINUE TOČKAZ | PraznaNaredba | blok
+# naredba -> deklaracija | petlja | grananje | ispis TOČKAZ | BREAK TOČKAZ | CONTINUE TOČKAZ | PraznaNaredba | blok
+# deklaracija -> INT IME TOČKAZ
 # blok -> VOTV naredbe VZATV
 # for -> FOR OOTV IME# JEDNAKO BROJ TOČKAZ IME# MANJE BROJ TOČKAZ
 # 	     IME# inkrement OZATV
@@ -64,11 +67,23 @@ def cpp(lex):
 class P(Parser):
     def start(p) -> 'Program':
         p.broj_petlji = 0
+        p.deklarirane_varijable = set()
         naredbe = [p.naredba()]
         while not p > KRAJ: naredbe.append(p.naredba())
         return Program(naredbe)
+    
+    def deklaracija(p) -> 'Deklaracija':
+        p >> T.INT
+        ime = p >> T.IME
+        ime_str = ime.sadržaj
+        if ime_str in p.deklarirane_varijable:
+            raise SemantičkaGreška(f'varijabla {ime_str} je već deklarirana')
+        p.deklarirane_varijable.add(ime_str)
+        p >> T.TOČKAZ
+        return Deklaracija(ime)
 
-    def naredba(p) -> 'petlja|ispis|grananje|BREAK|CONTINUE|PraznaNaredba|blok':
+    def naredba(p) -> 'Deklaracija|petlja|ispis|grananje|BREAK|CONTINUE|PraznaNaredba|blok':
+        if p > T.INT: return p.deklaracija()
         if p > T.FOR: return p.petlja()
         elif p > T.COUT: return p.ispis()
         elif p > T.IF: return p.grananje()
@@ -90,6 +105,10 @@ class P(Parser):
             'Sva tri dijela for-petlje moraju imati istu varijablu.')
         p >> T.FOR, p >> T.OOTV
         i = p >> T.IME
+
+        if i.sadržaj not in p.deklarirane_varijable:
+            raise SemantičkaGreška(f'varijabla {i.sadržaj} nije deklarirana prije upotrebe')
+
         p >> T.JEDNAKO
         početak = p >> {T.BROJ, T.IME}
         p >> T.TOČKAZ
@@ -137,6 +156,7 @@ class Nastavi(NelokalnaKontrolaToka): """Signal koji šalje naredba continue."""
 # Program: naredbe:[naredba]
 # naredba: BREAK: Token
 #          CONTINUE: Token
+#          Deklaracija: IME
 #          PraznaNaredba:
 #          Blok: naredbe:[naredba]
 #          Petlja: varijabla:IME početak:'T.BROJ|T.IME' granica:'T.BROJ|T.IME'
@@ -201,12 +221,20 @@ class Blok(AST):
     def izvrši(blok):
         for naredba in blok.naredbe: naredba.izvrši()
 
+class Deklaracija(AST):
+    var: T.IME
+
+    def izvrši(deklaracija):
+        rt.mem[deklaracija.var] = 0
+
 
 def očekuj(greška, kôd):
     print('Testiram:', kôd)
     with greška: P(kôd).izvrši()
 
 prikaz(kôd := P('''
+    int i;
+    int j;
     for ( i = 8 ; i < 13 ; i += 2 ) {
         for(j=0; j<5; j++) {
             cout<<i<<j;
@@ -219,6 +247,7 @@ kôd.izvrši()
 prikaz(P('cout;'))
 
 prikaz(kôd := P('''
+    int i;
     for ( i = 0 ; i < 10 ; i++ ) {
         if(i == 4) break;
         cout << i << endl;
@@ -227,6 +256,7 @@ prikaz(kôd := P('''
 kôd.izvrši()
 
 prikaz(kôd := P('''
+    int i;
     for ( i = 0 ; i < 10 ; i++ ) {
         if(i == 4) continue;
         cout << i << endl;
@@ -234,10 +264,11 @@ prikaz(kôd := P('''
 '''), 8)
 kôd.izvrši()
 
-prikaz(kôd := P('''for (i = 0 ; i < 10 ; i++ ) ;'''), 8)
+prikaz(kôd := P('''int i ; for (i = 0 ; i < 10 ; i++ ) ;'''), 8)
 kôd.izvrši()
 
 prikaz(kôd := P('''
+    int i;
     for ( i = 0 ; i < 3 ; i++ ) {
         if(i == 1) {
             cout << i;
@@ -248,6 +279,10 @@ prikaz(kôd := P('''
 kôd.izvrši()
 
 prikaz(kôd := P('''
+    int start;
+    int kraj;
+    int korak;
+    int i;
     for(start = 2; start < 3; start++)
     for(kraj = 10; kraj < 11; kraj++)
     for(korak = 3; korak < 4; korak++)
@@ -258,6 +293,7 @@ prikaz(kôd := P('''
 kôd.izvrši()
 
 prikaz(kôd := P('''
+    int i;
     for ( i = 0 ; i < 5 ; i++ ) {
         if (i < 3) {
             cout << i << endl;
@@ -280,4 +316,4 @@ očekuj(LeksičkaGreška, 'if(i == 07) cout;')
 # DZ: omogućite da parametri petlje budu varijable, ne samo brojevi. Rijeseno!
 # DZ: omogućite grananja s obzirom na relaciju <, ne samo ==. Rijeseno!
 # DZ: dodajte parseru kontekstnu varijablu 'jesmo li u petlji' za dozvolu BREAK. Rijeseno!
-# DZ: uvedite deklaracije varijabli i pratite jesu li varijable deklarirane
+# DZ: uvedite deklaracije varijabli i pratite jesu li varijable deklarirane. Rijeseno!
