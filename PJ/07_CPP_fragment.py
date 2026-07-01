@@ -89,17 +89,17 @@ class P(Parser):
         p >> T.FOR, p >> T.OOTV
         i = p >> T.IME
         p >> T.JEDNAKO
-        početak = p >> T.BROJ
+        početak = p >> {T.BROJ, T.IME}
         p >> T.TOČKAZ
 
         if (p >> T.IME) != i: raise kriva_varijabla
         p >> T.MANJE
-        granica = p >> T.BROJ
+        granica = p >> {T.BROJ, T.IME}
         p >> T.TOČKAZ
 
         if (p >> T.IME) != i: raise kriva_varijabla
         if p >= T.PLUSP: inkrement = nenavedeno
-        elif p >> T.PLUSJ: inkrement = p >> T.BROJ
+        elif p >> T.PLUSJ: inkrement = p >> {T.BROJ, T.IME}
         p >> T.OZATV
 
         tijelo = p.naredba()
@@ -152,9 +152,9 @@ class Program(AST):
 
 class Petlja(AST):
     varijabla: T.IME
-    početak: T.BROJ
-    granica: T.BROJ
-    inkrement: Optional[T.BROJ]
+    početak: 'T.BROJ|T.IME'
+    granica: 'T.BROJ|T.IME'
+    inkrement: Optional['T.BROJ|T.IME']
     tijelo: P.naredba
 
     def izvrši(petlja):
@@ -241,6 +241,16 @@ prikaz(kôd := P('''
 '''), 8)
 kôd.izvrši()
 
+prikaz(kôd := P('''
+    for(start = 2; start < 3; start++)
+    for(kraj = 10; kraj < 11; kraj++)
+    for(korak = 3; korak < 4; korak++)
+    for ( i = start ; i < kraj ; i += korak ) {
+        cout << i << endl;
+    }
+'''), 8)
+kôd.izvrši()
+
 očekuj(SintaksnaGreška, '')
 # očekuj(SintaksnaGreška, 'for(c=1; c<3; c++);')
 očekuj(LeksičkaGreška, '+1')
@@ -252,7 +262,7 @@ očekuj(LeksičkaGreška, 'if(i == 07) cout;')
 # DZ: implementirajte naredbu continue. Rijeseno!
 # DZ: implementirajte praznu naredbu (for/if(...);). Rijeseno!
 # DZ: omogućite i grananjima da imaju blokove -- uvedite novo AST Blok. Rijeseno!
-# DZ: omogućite da parametri petlje budu varijable, ne samo brojevi
+# DZ: omogućite da parametri petlje budu varijable, ne samo brojevi. Rijeseno!
 # DZ: omogućite grananja s obzirom na relaciju <, ne samo ==
 # DZ: dodajte parseru kontekstnu varijablu 'jesmo li u petlji' za dozvolu BREAK
 # DZ: uvedite deklaracije varijabli i pratite jesu li varijable deklarirane
