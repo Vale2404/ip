@@ -51,7 +51,8 @@ def cpp(lex):
 ## Beskontekstna gramatika
 # start -> naredbe naredba
 # naredbe -> '' | naredbe naredba
-# naredba -> petlja | grananje | ispis TOČKAZ | BREAK TOČKAZ | CONTINUE TOČKAZ
+# naredba -> petlja | grananje | ispis TOČKAZ | BREAK TOČKAZ | CONTINUE TOČKAZ | PraznaNaredba | blok
+# blok -> VOTV naredbe VZATV
 # for -> FOR OOTV IME# JEDNAKO BROJ TOČKAZ IME# MANJE BROJ TOČKAZ
 # 	     IME# inkrement OZATV
 # petlja -> for naredba | for VOTV naredbe VZATV
@@ -66,18 +67,22 @@ class P(Parser):
         while not p > KRAJ: naredbe.append(p.naredba())
         return Program(naredbe)
 
-    def naredba(p) -> 'petlja|ispis|grananje|BREAK|CONTINUE|PraznaNaredba':
+    def naredba(p) -> 'petlja|ispis|grananje|BREAK|CONTINUE|PraznaNaredba|blok':
         if p > T.FOR: return p.petlja()
         elif p > T.COUT: return p.ispis()
         elif p > T.IF: return p.grananje()
         elif p >= T.TOČKAZ: return PraznaNaredba()
+        elif p >= T.VOTV:
+            naredbe = []
+            while not p >= T.VZATV: naredbe.append(p.naredba())
+            return Blok(naredbe)
         elif br := p >= T.BREAK:
             p >> T.TOČKAZ
             return br
         elif cn := p >> T.CONTINUE:
             p >> T.TOČKAZ
             return cn
-
+     
     def petlja(p) -> 'Petlja':
         kriva_varijabla = SemantičkaGreška(
             'Sva tri dijela for-petlje moraju imati istu varijablu.')
@@ -97,11 +102,8 @@ class P(Parser):
         elif p >> T.PLUSJ: inkrement = p >> T.BROJ
         p >> T.OZATV
 
-        if p >= T.VOTV:
-            blok = []
-            while not p >= T.VZATV: blok.append(p.naredba())
-        else: blok = [p.naredba()]
-        return Petlja(i, početak, granica, inkrement, blok)
+        tijelo = p.naredba()
+        return Petlja(i, početak, granica, inkrement, tijelo)
         
     def ispis(p) -> 'Ispis':
         p >> T.COUT
@@ -130,8 +132,11 @@ class Nastavi(NelokalnaKontrolaToka): """Signal koji šalje naredba continue."""
 ## Apstraktna sintaksna stabla:
 # Program: naredbe:[naredba]
 # naredba: BREAK: Token
+#          CONTINUE: Token
+#          PraznaNaredba:
+#          Blok: naredbe:[naredba]
 #          Petlja: varijabla:IME početak:BROJ granica:BROJ
-#                      inkrement:BROJ? blok:[naredba]
+#                      inkrement:BROJ? tijelo:naredba
 #          Ispis: varijable:[IME] novired:ENDL?
 #          Grananje: lijevo:IME desno:BROJ onda:naredba
 
@@ -150,14 +155,14 @@ class Petlja(AST):
     početak: T.BROJ
     granica: T.BROJ
     inkrement: Optional[T.BROJ]
-    blok: list[P.naredba]
+    tijelo: P.naredba
 
     def izvrši(petlja):
         kv = petlja.varijabla  # kontrolna varijabla petlje
         rt.mem[kv] = petlja.početak.vrijednost()
         while rt.mem[kv] < petlja.granica.vrijednost():
             try:
-                for naredba in petlja.blok: naredba.izvrši()
+                petlja.tijelo.izvrši()
             except Prekid: break
             except Nastavi: pass
             inkr = petlja.inkrement
@@ -183,6 +188,12 @@ class Grananje(AST):
 
 class PraznaNaredba(AST):
     def izvrši(prazna): pass
+
+class Blok(AST):
+    naredbe: list[P.naredba]
+
+    def izvrši(blok):
+        for naredba in blok.naredbe: naredba.izvrši()
 
 
 def očekuj(greška, kôd):
@@ -220,6 +231,16 @@ kôd.izvrši()
 prikaz(kôd := P('''for (i = 0 ; i < 10 ; i++ ) ;'''), 8)
 kôd.izvrši()
 
+prikaz(kôd := P('''
+    for ( i = 0 ; i < 3 ; i++ ) {
+        if(i == 1) {
+            cout << i;
+            cout << i << endl;
+        }
+    }
+'''), 8)
+kôd.izvrši()
+
 očekuj(SintaksnaGreška, '')
 # očekuj(SintaksnaGreška, 'for(c=1; c<3; c++);')
 očekuj(LeksičkaGreška, '+1')
@@ -230,7 +251,7 @@ očekuj(LeksičkaGreška, 'if(i == 07) cout;')
 
 # DZ: implementirajte naredbu continue. Rijeseno!
 # DZ: implementirajte praznu naredbu (for/if(...);). Rijeseno!
-# DZ: omogućite i grananjima da imaju blokove -- uvedite novo AST Blok
+# DZ: omogućite i grananjima da imaju blokove -- uvedite novo AST Blok. Rijeseno!
 # DZ: omogućite da parametri petlje budu varijable, ne samo brojevi
 # DZ: omogućite grananja s obzirom na relaciju <, ne samo ==
 # DZ: dodajte parseru kontekstnu varijablu 'jesmo li u petlji' za dozvolu BREAK
