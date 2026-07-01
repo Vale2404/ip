@@ -66,10 +66,11 @@ class P(Parser):
         while not p > KRAJ: naredbe.append(p.naredba())
         return Program(naredbe)
 
-    def naredba(p) -> 'petlja|ispis|grananje|BREAK|CONTINUE':
+    def naredba(p) -> 'petlja|ispis|grananje|BREAK|CONTINUE|PraznaNaredba':
         if p > T.FOR: return p.petlja()
         elif p > T.COUT: return p.ispis()
         elif p > T.IF: return p.grananje()
+        elif p >= T.TOČKAZ: return PraznaNaredba()
         elif br := p >= T.BREAK:
             p >> T.TOČKAZ
             return br
@@ -180,6 +181,9 @@ class Grananje(AST):
         if grananje.lijevo.vrijednost() == grananje.desno.vrijednost():
             grananje.onda.izvrši()
 
+class PraznaNaredba(AST):
+    def izvrši(prazna): pass
+
 
 def očekuj(greška, kôd):
     print('Testiram:', kôd)
@@ -213,8 +217,11 @@ prikaz(kôd := P('''
 '''), 8)
 kôd.izvrši()
 
+prikaz(kôd := P('''for (i = 0 ; i < 10 ; i++ ) ;'''), 8)
+kôd.izvrši()
+
 očekuj(SintaksnaGreška, '')
-očekuj(SintaksnaGreška, 'for(c=1; c<3; c++);')
+# očekuj(SintaksnaGreška, 'for(c=1; c<3; c++);')
 očekuj(LeksičkaGreška, '+1')
 očekuj(SemantičkaGreška, 'for(a=1; b<3; c++)break;')
 očekuj(SemantičkaGreška, 'break;')
@@ -222,7 +229,7 @@ očekuj(LeksičkaGreška, 'if(i == 07) cout;')
 
 
 # DZ: implementirajte naredbu continue. Rijeseno!
-# DZ: implementirajte praznu naredbu (for/if(...);)
+# DZ: implementirajte praznu naredbu (for/if(...);). Rijeseno!
 # DZ: omogućite i grananjima da imaju blokove -- uvedite novo AST Blok
 # DZ: omogućite da parametri petlje budu varijable, ne samo brojevi
 # DZ: omogućite grananja s obzirom na relaciju <, ne samo ==
