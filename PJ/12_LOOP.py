@@ -112,12 +112,34 @@ prikaz(power := P('''
 '''), 9)
 print(baza:=3, '^', eksponent:=7, '=', računaj(power, baza, eksponent))
 
+prikaz(add := P('''
+    R1{
+        INC R0;
+        DEC R1;
+    }
+    R2{
+        INC R0;
+        DEC R2;
+    }
+'''), 9)
+print(broj1:=5, '+', broj2:=7, '=', računaj(add, broj1, broj2))
 
-# DZ: napišite multiply i add (mnogo su jednostavniji od power)
+prikaz(mul := P('''
+    R1{
+        R2{
+            INC R0;
+        }
+        DEC R1;
+    }
+'''), 9)
+print(broj1:=5, '*', broj2:=7, '=', računaj(mul, broj1, broj2))
+
+
+# DZ: napišite multiply i add (mnogo su jednostavniji od power). Rijeseno!
 # DZ: Primitivno rekurzivne funkcije predstavljaju funkcijski programski jezik
-# ~~  u kojem postoje inicijalne funkcije [nul Z(x)=0, sljedbenik Sc(x)=x+1, te
-# rj  koordinatne projekcije Ink(x1,...,xk)=xn za sve prirodne 1 <= n <= k].
-# 13  Također postoje operatori kompozicije [f(xs)=h(g1(xs),...,gl(xs))]
+#     u kojem postoje inicijalne funkcije [nul Z(x)=0, sljedbenik Sc(x)=x+1, te
+#     koordinatne projekcije Ink(x1,...,xk)=xn za sve prirodne 1 <= n <= k].
+#     Također postoje operatori kompozicije [f(xs)=h(g1(xs),...,gl(xs))]
 #     i primitivne rekurzije [f(xs,0)=g(xs); f(xs,y+1)=h(xs,y,f(xs,y))].
-# **  Napišite kompajler jezika primitivno rekurzivnih funkcija u LOOP.
+#     Napišite kompajler jezika primitivno rekurzivnih funkcija u LOOP.
 #     (Uputa: prvo položite, ili barem odslušajte, kolegij Izračunljivost!)
