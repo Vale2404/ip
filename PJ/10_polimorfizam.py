@@ -24,7 +24,17 @@ def raspiši(iterator):
         if znak == ZNAK.OKOSA:
             sljedeći = next(iterator)
             if sljedeći == 'n': yield ZNAK.NOVIRED
-            else: yield sljedeći
+            elif sljedeći == 'u': 
+                kod_tekst = ''
+                for _ in range(4):
+                    sljedeći = next(iterator, None)
+                    if sljedeći is None:
+                        raise ValueError('Nepotpuna Unicode escape sekvenca!')
+                    if sljedeći not in '0123456789abcdefABCDEF':
+                        raise ValueError(f'Neispravan znak u Unicode escape sekvenci: {sljedeći}')
+                    kod_tekst += sljedeći
+                yield chr(int(kod_tekst, 16))
+            else: yield sljedeći    
         else: yield znak
 
 class T(TipoviTokena):
@@ -108,4 +118,11 @@ print(*v, sep='«\t')
 prikaz(ast := P(''' [] + ["3" + "2" + "1",] + [ 3 + 2 + 1, ""] '''))
 print(ast.vrijednost())
 
-# DZ: omogućite razne druge \-escape sekvence (npr. \u za znakove Unikoda)
+print(lista := r'''
+  ["Vepar \u0041", "Euro \u20AC", "Smiley \u263A", "Music Note \u266B",
+   'Vepar \u0041', 'Euro \u20AC', 'Smiley \u263A', 'Music Note \u266B']
+''')
+prikaz(ast := P(lista), 2)
+print(ast.vrijednost())
+
+# DZ: omogućite razne druge \-escape sekvence (npr. \u za znakove Unikoda). Riješeno!
