@@ -1,0 +1,63 @@
+IP pisani ispit 23.6.2026.
+
+Ako još niste, vepar možete skinuti s githuba (detaljne upute su na Merlinu).
+Rješenje zadatka pišite isključivo u datoteku life.py, te ju na kraju uploadajte na Merlin.
+Datoteka se treba moći izvršiti u pythonu bez grešaka.
+
+Lana zasad nije položila Modele izračunavanja, no jako se zainteresirala za neobične
+sustave opće izračunljivosti. Naišla je na pojam staničnog automata, pa je odlučila uz
+spomenuti kolegij provježbati Praktičnu interpretaciju programa. Od svih staničnih automata,
+najviše joj se svidjela Igra života (https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life)
+jer ima konfiguraciju po imenu žaba krastača (engl. toad).
+
+Stoga je smislila jednostavan jezik koji sadrži riječi koje reprezentiraju pravokutne (ne nužno
+kvadratne!) matrice iz {'M','Ž'}^(mxn). Ovdje su m i n proizvoljni pozitivni cijeli brojevi (iako
+je Igra života neomeđena, naša će verzija igre biti omeđena; to će biti jedina razlika među njima),
+a 'M' i 'Ž' znakovi koji opisuju je li dana stanica (element matrice) redom mrtva ili živa. Do na
+bjeline koje se u ulazu zanemaruju, riječi jezika izgledaju ovako (za primjer je Lana uzela usamljenu
+žabu krastaču i stavila ju u varijablu ulaz):
+
+		ulaz = ''' |MMMMMMMMMMMMMMMMMMM
+		           |MMMMMMMMMMMMMMMMMMM
+                           |MMMMMMMMMMMMMMMMMMM
+                           |MMMMMMMMMMMMMMMMMMM
+                           |MMMMMMMŽŽŽMMMMMMMMM
+                           |MMMMMMŽŽŽMMMMMMMMMM
+                           |MMMMMMMMMMMMMMMMMMM
+		           |MMMMMMMMMMMMMMMMMMM
+                           |MMMMMMMMMMMMMMMMMMM
+                           |MMMMMMMMMMMMMMMMMMM
+                           |MMMMMMMMMMMMMMMMMMM| '''
+
+Primijetite da se na početku i kraju, te između svaka dva retka matrice nalazi okomita crta
+(engl. pipe). Lana je očekivano odlučila za međuprikaz koristiti liste, ali matrice sprema -
+možda nešto manje očekivano - kao listu dijagonala umjesto redaka ili stupaca. Pomozite joj
+napisati dobar semantički analizator. 
+
+U datoteci lifeparser.pyc nalaze se kompajlirani lekser (pripadna funkcija se zove life) i 
+parser (pripadna klasa se zove P) za gornji jezik. Zbog onoga "kompajlirani" ne možete vidjeti
+kako su implementirani, pa ih kao prvi korak isprobajte u interaktivnom modu 
+(python3.11 -i lifeparser.pyc) kako biste otkrili sve detalje koji su vam potrebni pri rješavanju
+zadatka u nastavku (za lakše isprobavanje, matrica iz primjera je u varijabli ulaz).
+
+Nakon tog prvog koraka, sve funkcije/klase iz lifeparser.pyc možete lako koristiti u svom
+kodu tako da spremite navedenu datoteku u isti direktorij gdje spremate datoteku u koju
+pišete svoj kod (life.py) te napišete from lifeparser import * u svoj kod.
+
+--------------------------------------------------------------------------------------------
+
+Napišite semantički analizator u obliku funkcije tick koja za ulaznu matricu (rezultat
+parsiranja pomoću Laninog parsera) daje iduću matricu u našoj verziji Igre života prema
+rulestringu B3/S23 (sve što vam treba za razumjeti zadatak je u rubrici Rules na gornjoj 
+stranici Wikipedije). Napominjemo da, budući da je naša verzija igre omeđena, postoje
+stanice koje imaju manje od 8 susjeda - te stanice se također ponašaju prema pravilima
+(mogu umrijeti/oživjeti), samo će nešto teže imati velik broj živih/mrtvih susjeda.
+ 
+Vaš semantički analizator, naravno, smije sadržavati "optimizator", tj. smije preurediti izlaz
+Laninog parsera po volji kako bi vam bio praktičniji za ostatak semantičke analize.
+
+Napišite i test za svoj semantički analizator: neka ispiše ulaznu matricu i deset idućih tickova
+(preciznije, deset iteracija funkciej tick), ali tako da između svaka dva ispisa pričeka jednu
+sekundu te obriše ekran. Kako bi ispis testa lijepo izgledao, za prikaz živih stanica koristite
+znak U+2B1B, a za prikaz mrtvih stanica znak U+2B1C. 
+
